@@ -1,0 +1,351 @@
+---
+title: 'DATA 605: Week 6 Assignment'
+author: "Aaron Grzasko"
+date: "March 12, 2017"
+output: 
+    html_document:
+        theme: default
+        highlight: haddock
+---  
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment=NA, warning=FALSE, message=FALSE)
+```
+  
+  
+## Problem Set 1  
+
+*Load Packages*
+```{r, message=FALSE, warning=FALSE}
+# load packages for PS1 and PS2
+if(!require(prob)) {install.packages("prob"); library(prob)}
+if(!require(DT)) {install.packages("DT"); library(DT)}
+if(!require(stringr)) {install.packages("stringr"); library(stringr)}
+```
+  
+**1.  When you roll a fair die 3 times, how many possible outcomes are there?**  
+  
+This problem involves sampling with replacement, with six possible outcomes for each roll.  
+Because the die is rolled three times, the total number of outcomes is:  
+<br>
+${6}^{3}=216$  
+```{r}
+6^3
+```
+
+We can also create a visual depiction of the sample space:  
+```{r, warning=FALSE, message=FALSE, comment=NA}
+
+# create sample space
+roll3 <- rolldie(3)
+datatable(roll3)
+
+```
+
+<br>
+**2. What is the probability of getting a sum total of 3 when you roll a die two times?**  
+  
+The probability is calculated as the number of outcomes where the sum of rolls is 3, divided by the number of total possible outcomes:  
+
+$P(SumDieRoll=3)=\frac { N(SumDieRoll=3) }{ N(TotalOutcomes) }$  
+
+We know that there are 36 total distinct outcomes, N(Total Outcomes), when rolling two die:  
+
+```{r}
+# simulate rolling die 2 times
+roll2 <- rolldie(2, makespace=TRUE)
+
+datatable(roll2[,1:2])
+
+```
+<br>
+We also know there are only two distinct outcomes, N(SumDieRoll=3), that result in a sum of 3:  
+```{r}
+datatable(subset(roll2[,1:2], X1+X2 ==3))
+
+```
+<br>
+Therefore, the probability is $\frac {2}{36}\approx0.0556$.  
+  
+Let's check our work: 
+```{r}
+# calculate probability of rolling a total of three in two die rolls 
+Prob(roll2, X1+X2 == 3)
+
+```
+
+**3. Assume a room of 25 strangers. What is the probability that two of them have the
+same birthday? Assume that all birthdays are equally likely and equal to 1/365
+each.**  
+<br>  
+  
+Let's create a couple helper functions to aid in our calculations:  
+  
+```{r}
+# function to calculate probability that exactly x strangers share a single birthday,
+# with all other birthdays having distinct dates
+# assumes sample size of n
+# x = 1 and x = 0 are both treated as no shares
+
+bday_share <- function(n,x){
+    if (x != round(x) | n != round(n) | x > n | x < 0 | n < 0){
+      return("Error! Inputs n,x must be zero or positive integers with x <= n")
+      }
+    # case where at least two strangers share birthday
+    else if (x > 1){
+      return(365*choose(n,x) * choose(364,n-x) * factorial(n-x) / 365^n)
+    }
+    # case where no strangers share birthday
+    else {
+      return((1/365)^n*choose(365,n)*factorial(n))
+    }
+}
+
+
+# simulate birthdays
+# num_share = number of strangers sharing one birthday;
+# num_share = 0 and num_share = 1 are both interpreted as no shares
+# adapted from: http://math.stackexchange.com/questions/140242/probability-question-birthday-problem
+
+sim_dups <- function(sample_size, num_share, num_sims = 10^5){
+    if (num_share != round(num_share) | sample_size != round(sample_size) | 
+        num_share > sample_size | num_share < 0 | sample_size < 0 ){
+      return("Error! Inputs n,x must be zero or positive integers with x <= n")
+      }
+    else{
+      x = numeric() 
+      set.seed(1)
+      for (i in 1:num_sims) {
+
+          birthday_sample <- sample(1:365, sample_size, rep=T)
+        
+          x[i] <- length(unique(birthday_sample)) == (sample_size - num_share + ifelse(num_share==0,0,1)) 
+      }
+      return(mean(x))
+    }
+}
+
+```
+<br>  
+
+
+**P(exactly 2 share a birthday):**  
+  
+*Analytical Solution*  
+
+Let x = number of strangers in sample sharing a birthday
+Let n = total sample size  
+
+Our formula is:  
+
+$P(X=x)=\frac { 365{ _{ n }{ C }_{ x } }\quad _{ 364 }{ P }_{ n-x } }{ { 365 }^{ n } }$
+
+For $P(X=2)$, we have:  
+
+```{r}
+bday_share(23,2)
+```
+  
+*Simulation*
+```{r}
+sim_dups(23,2)
+
+```
+<br>
+
+**P(At least 2 share birthday)**  
+
+*Analytical Solution*  
+
+$P(bday \quad shares >= 2)\quad=\quad1-P(No\quad shares)\quad=\quad1-{\left(\frac{1}{365}\right)}^{ n }{ _{ 365 }{ P }_{ n }}$
+```{r}
+# calc with bday function
+1 - bday_share(23,0)
+```
+
+*Simulation*  
+  
+```{r}
+1-sim_dups(23,0)
+
+```
+ 
+**What happens to this probability when there are 50 people in the room?**  
+  
+The probability of exactly two strangers sharing a birthday goes down, but the probability that at least two strangers share a birthday goes up dramatically.   
+  
+**P(exactly 2 share a birthday):** 
+```{r}
+# analytical solution
+bday_share(50,2)
+
+# simulation
+sim_dups(50,2)
+```
+
+**P(at least 2 share birthdays)**  
+```{r}
+# analytical solution
+1 - bday_share(50,0)
+
+# simulation
+1 - sim_dups(50,0)
+```
+  
+  
+## Problem Set 2  
+
+**Sometimes you cannot compute the probability of an outcome by measuring the sample space and examining the symmetries of the underlying physical phenomenon, as you could do when you rolled die or picked a card from a shuffled deck. You have to estimate probabilities by other means. For instance, when you have to compute the probability of various english words, it is not possible to do it by examination of the sample space as it is too large. You have to resort to empirical techniques to get a good enough estimate. One such approach would be to take a large corpus of documents and from those documents, count the number of occurrences of a particular character or word and then base your estimate on that.  Write a program to take a document in English and print out the estimated probabilities for each of the words that occur in that document. Your program should take in a file containing a large document and write out the probabilities of each of the words that appear in that document. Please remove all punctuation (quotes, commas, hyphens etc) and convert the words to lower case before you perform your calculations.**  
+```{r}
+# function to return words in text file in descending order by relative freqency
+# by default, function assumes file is in working directory
+
+
+word_parser <- function(file,dir=getwd(),encoding = 'UTF-8'){
+  
+  # read in file, given file name and directory
+  mytext <- readLines(file.path(dir,file),warn=FALSE,encoding=encoding)
+  
+  # use regex to extract each word.  
+  # get rid of numbers and punctuation except apostrophes located within words (e.g. "I've")
+  mytext <- tolower(unlist(str_extract_all(mytext,"\\b[[:alpha:]'’]+\\b")))
+  
+  # create data frame of relative frequencies
+  freq <- data.frame(cbind(table(mytext) / length(mytext)))
+  names(freq) <- "rel_freq"
+  
+  # sort descending by rel freq
+  freq <- freq[order(-freq[,1]),,drop=FALSE]
+  
+# return words with rel freq rounded to 4 decimal places
+  return(round(freq,6))
+  
+}
+``` 
+<br>  
+Here are single word probabilities from the provided, sample text file:  
+
+```{r}
+# url with sample text data
+myurl <- "https://raw.githubusercontent.com/spitakiss/DATA605_HW6/master/assign6.sample.txt"
+
+# download text file
+download.file(myurl,"assign6.sample.txt")
+
+# show output probability output using sample text data
+single_words <- word_parser("assign6.sample.txt")
+datatable(single_words)
+```
+
+Let's now test the probabilities of some specific words:  
+```{r}
+# function to test specific word probabilities
+single_word_prob <- function(corpus,word){
+  my_prob <- corpus[which(row.names(corpus) == word),]
+  return(my_prob)
+}
+# test some  words
+single_word_prob(single_words,"and")
+single_word_prob(single_words,"justice")
+single_word_prob(single_words,"for")
+single_word_prob(single_words,"all")
+```
+
+  
+
+**Extend your program to calculate the probability of two words occurring adjacent to each other. It should take in a document, and two words (say the and for) and compute the probability of each of the words occurring in the document and the joint probability of both of them occurring together. The order of the two words is not important. Use the accompanying document for your testing purposes.**  
+  
+```{r}
+# function to return all word pairs, sorted in descending order by relative frequency
+
+
+bigram_word_parser <- function(file,dir=getwd(),encoding = 'UTF-8'){
+  
+  # read in file, given file name and directory
+  mytext <- readLines(file.path(dir,file),warn=FALSE,encoding=encoding)
+  
+  # use regex to extract each word.  
+  # get rid of numbers and punctuation except apostrophes located within words (e.g. "I've")
+  mytext <- tolower(unlist(str_extract_all(mytext,"\\b[[:alpha:]'’]+\\b")))
+  
+  # initialize master word and word pair list
+  master <- character()
+  
+  # find all word pairs.  
+  # sort each pair of words in alphabetical order to remove impact of word order in the original document
+  # append each pair to master vector
+  for (i in 1:(length(mytext)-1)){
+    pair <- c(mytext[i],mytext[i+1]) 
+    pair <- pair[order(pair)]
+    master <- append(master, paste(pair[1],pair[2]))
+  } 
+  
+  
+  # create data frame of relative frequencies
+  freq <- data.frame(cbind(table(master) / length(master)))
+  names(freq) <- "rel_freq"
+  
+  # sort descending by rel freq
+  freq <- freq[order(-freq[,1]),,drop=FALSE]
+  
+  # return words and word pairs with rel freq rounded to 6 decimal places
+  return(round(freq,6))
+}
+```
+<br>  
+Here is output from the function using the provided, sample text file:  
+
+```{r}
+# show output from function
+two_words <- bigram_word_parser("assign6.sample.txt")
+datatable(two_words)
+
+```
+<br>  
+  
+Now let's write a function that takes in two words, and calculates the probability of each word individually, as well as the joint probability of the words occurring together:  
+```{r}
+two_word_prob <- function(word1, word2, corpus, bigram_corpus){
+  word_vec <- c(word1, word2)
+  word_vec <- word_vec[order(word_vec)]
+  word_vec <- paste(word_vec[1],word_vec[2])
+  joint_prob <- bigram_corpus[which(row.names(bigram_corpus) == word_vec),]
+
+  return(list(paste0("'",word1,"'"," probability: ",single_word_prob(corpus, word1)),
+       paste0("'",word2,"'"," probability: ",single_word_prob(corpus, word2)),
+       paste0("joint probability: ", joint_prob)))
+ 
+}
+```
+<br>  
+
+Below is sample output for the words "for" and "the."  
+```{r}
+two_word_prob("for","the",single_words, two_words)
+```
+<br>  
+
+**Compare your probabilities of various words with the [Time Magazine corpus:](http://corpus.byu.edu/time/)**  
+
+```{r}
+# probability of word "for" from times corpus 
+time_for <- 950685 / 10^8
+time_for
+
+# probability of word "the" from times corpus 
+time_the <- 6367449/10^8
+time_the
+
+
+# compare "for" frequency:  sample text frequency - Times freqency
+single_word_prob(single_words,"for") - time_for
+
+
+# compare "the" frequency:  sample text frequency - Times freqency
+single_word_prob(single_words,"the") - time_the
+
+
+```
+
+
+
